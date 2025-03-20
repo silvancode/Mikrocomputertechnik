@@ -121,7 +121,6 @@ void setup() {
   }
 
   Serial.begin(9600);
-  //Serial.println("\n");
   Serial.println("TCS34725 RGB sensor test");
 
   // Initialize the sensor
