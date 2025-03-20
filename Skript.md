@@ -67,8 +67,8 @@ Pull-Down Widerstände gibt es nicht, das wäre einfach ein Vorwiderstand einer 
 const int taster = 2;
 const int led = 5;
 
-bool ledState = LOW;
-bool lastButtonState = HIGH; // Invertierte Logik für Pull-Up
+bool ledState = false;
+bool lastButtonState = true; // Invertierte Logik für Pull-Up
 int lastDebounceTime = 0; // Zeitstempel der letzten Änderung
 const int debounceDelay = 50; // Entprellzeit (ms)
 
@@ -87,8 +87,8 @@ void loop() {
 
   // Wenn der Tasterzustand länger als debounceDelay stabil ist, verarbeiten
   if ((millis() - lastDebounceTime) > debounceDelay) {
-    // Bei einem Wechsel von HIGH zu LOW (Taster wurde gedrückt)
-    if (lastButtonState == HIGH && currentButtonState == LOW) {
+    // Bei einem Wechsel von true zu false (Taster wurde gedrückt)
+    if (lastButtonState == true && currentButtonState == false) {
       ledState = !ledState;  // LED-Zustand umschalten
       digitalWrite(ledPin, ledState ? HIGH : LOW);
     }
@@ -96,5 +96,155 @@ void loop() {
 
   // Aktuellen Zustand als letzten Zustand speichern
   lastButtonState = currentButtonState;
+}
+```
+## Übung 4.6 Fade-in Fade-Out
+---
+```C
+const int taster = 2;
+const int led = 5;
+
+bool ledState = false;
+bool lastButtonState = true; // Invertierte Logik für Pull-Up
+int lastDebounceTime = 0; // Zeitstempel der letzten Änderung
+const int debounceDelay = 50; // Entprellzeit (ms)
+const int fadeTime = 200; // Fade-Zeit (ms)
+
+void setup() {
+  pinMode(taster, INPUT_PULLUP);  // Pull-Up Widerstand definieren
+  pinMode(led, OUTPUT);
+}
+
+void loop() {
+  bool currentButtonState = digitalRead(taster);
+
+  // Prüfen, ob sich der Tasterzustand geändert hat
+  if (currentButtonState != lastButtonState) {
+    lastDebounceTime = millis();  // Zeitpunkt der letzten Änderung merken
+  }
+
+  // Wenn der Tasterzustand länger als debounceDelay stabil ist, verarbeiten
+  if ((millis() - lastDebounceTime) > debounceDelay) {
+    // Bei einem Wechsel von true zu false (Taster wurde gedrückt)
+    if (lastButtonState == true && currentButtonState == false) {
+      ledState = !ledState;  // LED-Zustand umschalten
+      for (int dim = fadeTime; dim > 0; dim--) {
+        // Durch invertieren des Zahlbereichs in Map Fade-In oder -Out
+        if (ledState) {
+            map(dim, 0, fadeTime, 0, 255);
+            analogWrite(led, dim);
+        }else{
+            map(dim, 0, fadeTime, 255, 0);
+            analogWrite(led, dim);
+        }
+        delay(1)
+      }
+    }
+  }
+
+  // Aktuellen Zustand als letzten Zustand speichern
+  lastButtonState = currentButtonState;
+}
+```
+## Übung 4.7 Interrupt
+---
+```C
+const int ledPin = 5;
+const int buttonPin = 2;
+
+volatile bool buttonPressed = false; // fallende Flanke
+bool ledState = false; // LED-Status
+
+const int fadeTime = 200; // Fade-Vorgangs in ms
+
+void IRAM_ATTR InterruptHandler() {
+  buttonPressed = true; // Flanke setzen
+}
+
+void setup() {
+  pinMode(ledPin, OUTPUT);
+  pinMode(buttonPin, INPUT_PULLUP);
+  attachInterrupt(digitalPinToInterrupt(buttonPin), InterruptHandler, FALLING);
+}
+
+void fadeLED(bool fadeIn) {
+  unsigned long interval = fadeTime / 255;  // Zeit pro Schritt berechnen
+
+  if (fadeIn) {
+    // LED langsam einschalten
+    for (int brightness = 0; brightness <= 255; brightness++) {
+      analogWrite(ledPin, brightness);
+      delay(interval);
+    }
+  } else {
+    // LED langsam ausschalten
+    for (int brightness = 255; brightness >= 0; brightness--) {
+      analogWrite(ledPin, brightness);
+      delay(interval);
+    }
+  }
+}
+
+void loop() {
+  if (buttonPressed) {
+    buttonPressed = false; // Zurücksetzen der Flanke
+    ledState = !ledState; // Zustand umschalten
+    fadeLED(ledState); // LED faden (ein- oder aus)
+  }
+}
+```
+## Übung 4.8 Fade kombiniert
+---
+```C
+const int ledPin = 5;
+const int buttonPin = 2;
+
+// Einstellungen (frei wählbar)
+const unsigned int fadeTime = 500;      // Dauer des Fade (ms)
+const unsigned int debounceDelay = 50;  // Entprellzeit (ms)
+
+volatile bool buttonPressed = false;
+volatile unsigned long lastInterruptTime = 0;
+
+bool ledState = false;
+
+void IRAM_ATTR InterruptHandler() {
+  unsigned long interruptTime = millis();
+
+  // Software-Entprellen direkt im Interrupt (zeitbasiert)
+  if (interruptTime - lastInterruptTime > debounceDelay) {
+    buttonPressed = true;
+    lastInterruptTime = interruptTime;
+  }
+}
+
+void setup() {
+  pinMode(ledPin, OUTPUT);
+  pinMode(buttonPin, INPUT_PULLUP);
+  attachInterrupt(digitalPinToInterrupt(buttonPin), InterruptHandler, FALLING);
+}
+
+void fadeLED(bool fadeIn) {
+  unsigned int interval = fadeTime / 255;
+
+  if (fadeIn) {
+    for (int brightness = 0; brightness <= 255; brightness++) {
+      analogWrite(ledPin, brightness);
+      delay(interval);
+    }
+  } else {
+    for (int brightness = 255; brightness >= 0; brightness--) {
+      analogWrite(ledPin, brightness);
+      delay(interval);
+    }
+  }
+}
+
+void loop() {
+  if (buttonPressed) {
+    buttonPressed = false;
+    ledState = !ledState;
+    fadeLED(ledState);
+  }
 }
 ```
